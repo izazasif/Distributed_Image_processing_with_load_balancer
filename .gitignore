@@ -1,0 +1,11 @@
+# ===== IDE / Editors =====
+# VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.venv/
+__pycache__/
+.env
+*.pyc

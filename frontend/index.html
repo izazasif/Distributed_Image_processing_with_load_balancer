@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Monitoring Dashboard</title>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js (must be loaded before charts.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3"></script>
+
+    <style>
+      body { background: #0b0f17; }
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-thumb { background: #2a2f3a; border-radius: 999px; }
+      ::-webkit-scrollbar-thumb:hover { background: #3a4252; }
+    </style>
+  </head>
+
+  <body class="text-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="border-b border-white/5 bg-[#0b0f17]/80 backdrop-blur sticky top-0 z-10">
+      <div class="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center font-bold">
+            LM
+          </div>
+          <div>
+            <h1 class="text-lg font-semibold tracking-wide">Live Metrics Dashboard</h1>
+            <p class="text-xs text-gray-400">
+              Refresh: <span class="font-medium">2s</span> · Source:
+              <span id="dataMode" class="font-semibold text-amber-300">DEMO</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs text-gray-300">
+            API: <span id="apiStatus" class="font-semibold text-gray-200">—</span>
+          </div>
+          <div class="text-xs text-gray-400">
+            Last update: <span id="lastUpdated" class="text-gray-200 font-medium">—</span>
+          </div>
+          <div class="text-xs text-gray-400">
+            Latency: <span id="latency" class="text-gray-200 font-medium">—</span> ms
+          </div>
+        </div>
+        <div>
+          <button
+            id="logoutBtn"
+            class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition"
+          >
+            Logout
+          </button>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-5 py-6 space-y-6">
+      <!-- KPIs -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p class="text-xs text-gray-400">Sign ups (24h)</p>
+          <p id="kpiSignups" class="mt-2 text-3xl font-bold text-emerald-400">—</p>
+          <p class="mt-2 text-xs text-gray-400">Trend: <span id="kpiSignupsTrend" class="text-gray-200">—</span></p>
+        </div>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p class="text-xs text-gray-400">Logins (24h)</p>
+          <p id="kpiLogins" class="mt-2 text-3xl font-bold text-sky-400">—</p>
+          <p class="mt-2 text-xs text-gray-400">Trend: <span id="kpiLoginsTrend" class="text-gray-200">—</span></p>
+        </div>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p class="text-xs text-gray-400">Sign outs (24h)</p>
+          <p id="kpiSignouts" class="mt-2 text-3xl font-bold text-orange-400">—</p>
+          <p class="mt-2 text-xs text-gray-400">Trend: <span id="kpiSignoutsTrend" class="text-gray-200">—</span></p>
+        </div>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <p class="text-xs text-gray-400">Errors (24h)</p>
+          <p id="kpiErrors" class="mt-2 text-3xl font-bold text-rose-400">—</p>
+          <p class="mt-2 text-xs text-gray-400">Rate: <span id="kpiErrorRate" class="text-gray-200">—</span></p>
+        </div>
+      </section>
+
+      <!-- Gauges -->
+      <section class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">CPU</p>
+            <p class="text-xs text-gray-400"><span id="cpuPct">—</span>%</p>
+          </div>
+          <div class="mt-3 h-[160px]"><canvas id="cpuGauge"></canvas></div>
+        </div>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Memory</p>
+            <p class="text-xs text-gray-400"><span id="ramPct">—</span>%</p>
+          </div>
+          <div class="mt-3 h-[160px]"><canvas id="ramGauge"></canvas></div>
+          <p id="ramText" class="mt-2 text-xs text-gray-400">— / — GB</p>
+        </div>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Disk</p>
+            <p class="text-xs text-gray-400"><span id="diskPct">—</span>%</p>
+          </div>
+          <div class="mt-3 h-[160px]"><canvas id="diskGauge"></canvas></div>
+          <p id="diskText" class="mt-2 text-xs text-gray-400">— / — GB</p>
+        </div>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Requests/min</p>
+            <p class="text-xs text-gray-400"><span id="rpmNow">—</span></p>
+          </div>
+          <div class="mt-3 h-[160px]"><canvas id="rpmGauge"></canvas></div>
+          <p class="mt-2 text-xs text-gray-400">Backend: <span id="backendUp" class="text-gray-200 font-medium">—</span></p>
+          <p class="mt-1 text-xs text-gray-400">DB: <span id="dbUp" class="text-gray-200 font-medium">—</span></p>
+        </div>
+      </section>
+
+      <!-- Live Charts -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">CPU & Memory (live)</p>
+            <p class="text-xs text-gray-400">last 60 points</p>
+          </div>
+          <div class="mt-3 h-[220px]"><canvas id="cpuRamLine"></canvas></div>
+        </div>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Logins (live)</p>
+            <p class="text-xs text-gray-400">events/min</p>
+          </div>
+          <div class="mt-3 h-[220px]"><canvas id="loginsLine"></canvas></div>
+        </div>
+      </section>
+
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">Top endpoints (hits/min)</p>
+            <p class="text-xs text-gray-400">live</p>
+          </div>
+          <div class="mt-3 h-[260px]"><canvas id="endpointsBar"></canvas></div>
+        </div>
+
+        <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">System</p>
+            <p class="text-xs text-gray-400">info</p>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+              <p class="text-xs text-gray-400">Uptime</p>
+              <p id="uptime" class="mt-1 font-semibold text-gray-200">—</p>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+              <p class="text-xs text-gray-400">Host</p>
+              <p id="host" class="mt-1 font-semibold text-gray-200">—</p>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+              <p class="text-xs text-gray-400">Version</p>
+              <p id="version" class="mt-1 font-semibold text-gray-200">—</p>
+            </div>
+            <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+              <p class="text-xs text-gray-400">Endpoint</p>
+              <p id="endpointView" class="mt-1 font-semibold text-gray-200">—</p>
+            </div>
+          </div>
+
+          <p class="mt-4 text-xs text-gray-400">
+            Later you will connect real data by changing
+            <code class="px-1.5 py-0.5 rounded bg-white/10 border border-white/10">METRICS_URL</code>
+            in <code class="px-1.5 py-0.5 rounded bg-white/10 border border-white/10">js/config.js</code>.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Scripts (order matters) -->
+    <script src="script/config.js"></script>
+    <script src="script/charts.js"></script>
+    <script src="script/demo.js"></script>
+    <script src="script/dashboard.js"></script>
+
+    <script>
+      /* ========= AUTH CHECK ========= */
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        // if user not logged in → go login page
+        window.location.href = "login.html";
+      }
+
+      /* ========= LOGOUT ========= */
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        localStorage.removeItem("token");
+
+        // optional: clear all storage
+        localStorage.clear();
+
+        // redirect to login
+        window.location.href = "login.html";
+      });
+    </script>
+  </body>
+</html>
